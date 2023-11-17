@@ -39,41 +39,39 @@ import json
 #         st.session_state['filepath'] = file_path
 
 
-def add_upload(choice):
-    """
-    Provides the user with a choice to either 'Upload Document' or 'Try Example'.
-    Based on the user choice, it runs Streamlit processes and saves the path and name of
-    the files to Streamlit session_state which then can be fetched later.
-    """
 
+
+
+def add_upload(choice):
     if choice == 'Upload Document':
         uploaded_files = st.sidebar.file_uploader('Upload Files', 
                                                   type=['pdf', 'docx', 'txt'], 
                                                   accept_multiple_files=True)
         
         if uploaded_files is not None:
-            # Clear previous session state
+            # Clear previous uploaded files from session state
             for key in list(st.session_state.keys()):
-                del st.session_state[key]
+                if key.startswith('filename') or key.startswith('filepath'):
+                    del st.session_state[key]
 
-            # Process each uploaded file
-            for uploaded_file in uploaded_files:
-                with tempfile.NamedTemporaryFile(mode="wb", delete=False) as temp:
-                    bytes_data = uploaded_file.getvalue()
-                    temp.write(bytes_data)
-                    # Save file info in session_state using the file name as the key
-                    st.session_state[uploaded_file.name] = {
-                        'filename': uploaded_file.name,
-                        'filepath': temp.name
-                    }
+        # Process and store each uploaded file
+        for index, uploaded_file in enumerate(uploaded_files):
+            with tempfile.NamedTemporaryFile(mode="wb", delete=False) as temp:
+                bytes_data = uploaded_file.getvalue()
+                temp.write(bytes_data)
+                st.session_state[f'filename_{index}'] = uploaded_file.name
+                st.session_state[f'filepath_{index}'] = temp.name
+        st.text(f"Session State: {st.session_state}")
 
-    else:
-        # Listing the options
+    else:  # Handle example document selection
+        # listing the options
         with open('docStore/sample/files.json', 'r') as json_file:
             files = json.load(json_file)
 
-        option = st.sidebar.selectbox('Select the example document', list(files.keys()))
+        option = st.sidebar.selectbox('Select the example document',
+                                      list(files.keys()))
         file_name = file_path = files[option]
-        st.session_state['filename'] = file_name
-        st.session_state['filepath'] = file_path
+        st.session_state['filename_0'] = file_name  # Use 'filename_0' to align with the upload naming convention
+        st.session_state['filepath_0'] = file_path  # Use 'filepath_0' for consistency
 
+    st.write(st.session_state)
