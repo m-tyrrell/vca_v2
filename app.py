@@ -16,7 +16,10 @@ with st.sidebar:
                             or else you can try a example document', 
                             options = ('Upload Document', 'Try Example'), 
                             horizontal = True)
-    add_upload(choice) 
+    add_upload(choice)
+
+
+
 
 with st.container():
         st.markdown("<h2 style='text-align: center; color: black;'> Vulnerability Analysis </h2>", unsafe_allow_html=True)
@@ -84,18 +87,22 @@ with st.expander("ℹ️ - About this app", expanded=False):
                   
     st.write("")
 
+
+
+
 # Define the apps used
 apps = [processing.app, vulnerability_analysis.app]
 
-multiplier_val =1/len(apps)
+multiplier_val = 1 / len(apps)
 if st.button("Analyze Document"):
     prg = st.progress(0.0)
-    for i,func in enumerate(apps):
+    for i, func in enumerate(apps):
         func()
-        prg.progress((i+1)*multiplier_val)
+        prg.progress((i + 1) * multiplier_val)
+
 
 # If there is data stored
-if 'key0' in st.session_state:
+if 'combined_files_df' in st.session_state:
     with st.sidebar:
         topic = st.radio(
                         "Which category you want to explore?",
@@ -104,7 +111,7 @@ if 'key0' in st.session_state:
     if topic == 'Vulnerability':
 
         # Assign dataframe a name
-        df_vul = st.session_state['key0']
+        df_vul = st.session_state['combined_files_df']
 
         col1, col2 = st.columns([1,1])
 
@@ -159,3 +166,4 @@ if 'key0' in st.session_state:
     # else: 
     #     policyaction.policy_display()
     #st.write(st.session_state.key0)
+

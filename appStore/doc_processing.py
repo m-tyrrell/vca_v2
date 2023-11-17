@@ -55,23 +55,52 @@ def runPreprocessingPipeline(file_name:str, file_path:str,
     return output_pre
 
 
-def app():
-    with st.container():           
-          if 'filepath' in st.session_state:
-              file_name = st.session_state['filename']
-              file_path = st.session_state['filepath']
+# def app():
+#     with st.container():           
+#           if 'filepath' in st.session_state:
+#               file_name = st.session_state['filename']
+#               file_path = st.session_state['filepath']
 
               
-              all_documents = runPreprocessingPipeline(file_name= file_name,
-                              file_path= file_path, split_by= params['split_by'],
-                              split_length= params['split_length'],
-              split_respect_sentence_boundary= params['split_respect_sentence_boundary'],
-              split_overlap= params['split_overlap'], remove_punc= params['remove_punc'])
-              paralist = paraLengthCheck(all_documents['documents'], 100)
-              df = pd.DataFrame(paralist,columns = ['text','page'])
-              # saving the dataframe to session state
-              st.session_state['key0'] = df
+#               all_documents = runPreprocessingPipeline(file_name= file_name,
+#                               file_path= file_path, split_by= params['split_by'],
+#                               split_length= params['split_length'],
+#               split_respect_sentence_boundary= params['split_respect_sentence_boundary'],
+#               split_overlap= params['split_overlap'], remove_punc= params['remove_punc'])
+#               paralist = paraLengthCheck(all_documents['documents'], 100)
+#               df = pd.DataFrame(paralist,columns = ['text','page'])
+#               # saving the dataframe to session state
+#               st.session_state['key0'] = df
               
-          else:
-                st.info("🤔 No document found, please try to upload it at the sidebar!")
-                logging.warning("Terminated as no document provided")
+#           else:
+#                 st.info("🤔 No document found, please try to upload it at the sidebar!")
+#                 logging.warning("Terminated as no document provided")
+
+
+def app():
+    with st.container():
+        all_files_df = pd.DataFrame()  # Initialize an empty DataFrame to store data from all files
+
+        for key in st.session_state:
+            if key.startswith('filepath_'):
+                file_path = st.session_state[key]
+                file_name = st.session_state['filename' + key[-2:]]  # Assuming a similar naming convention for filenames
+
+                all_documents = runPreprocessingPipeline(file_name=file_name,
+                                                        file_path=file_path, split_by=params['split_by'],
+                                                        split_length=params['split_length'],
+                                                        split_respect_sentence_boundary=params['split_respect_sentence_boundary'],
+                                                        split_overlap=params['split_overlap'], remove_punc=params['remove_punc'])
+                paralist = paraLengthCheck(all_documents['documents'], 100)
+                file_df = pd.DataFrame(paralist, columns=['text', 'page'])
+                file_df['filename'] = file_name  # Add a column for the file name
+
+                all_files_df = pd.concat([all_files_df, file_df], ignore_index=True)
+
+        if not all_files_df.empty:
+            st.session_state['combined_files_df'] = all_files_df
+        else:
+            st.info("🤔 No document found, please try to upload it at the sidebar!")
+            logging.warning("Terminated as no document provided")
+
+
