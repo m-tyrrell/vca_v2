@@ -5,6 +5,55 @@ import streamlit as st
 from utils.vulnerability_classifier import label_dict
 import pandas as pd
 import plotly.express as px
+import os
+
+
+import json
+# from dotenv import load_dotenv
+import numpy as np
+from haystack.schema import Document
+# from huggingface_hub import login, HfApi, hf_hub_download, InferenceClient
+import openai
+
+
+# Get openai API key
+openai.api_key = os.environ["OPENAI_API_KEY"]
+
+
+prompt_template="Provide a single paragraph summary of the documents provided below. \
+Formulate your answer in the style of an academic report."
+
+# define a special function for putting the prompt together (as we can't use haystack)
+def get_prompt(docs):
+  base_prompt=prompt_template
+  # Add the meta data for references
+  context = ' - '.join([d.content for d in docs])
+  prompt = base_prompt+"; Context: "+context+"; Answer:"
+  return(prompt)
+
+def run_query(docs):
+    # instantiate ChatCompletion as a generator object (stream is set to True)
+    # response = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": get_prompt(docs)}], stream=True)
+    res = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": get_prompt(docs)}])
+    output = res.choices[0].message.content
+    st.success(output)
+    # iterate through the streamed output
+    # report = []
+    # for chunk in response:
+    #     # extract the object containing the text (totally different structure when streaming)
+    #     chunk_message = chunk['choices'][0]['delta']
+    #     # test to make sure there is text in the object (some don't have)
+    #     if 'content' in chunk_message:
+    #         report.append(chunk_message.content) # extract the message
+    #         # add the latest text and merge it with all previous
+    #         result = "".join(report).strip()
+    #         res_box.success(result) # output to response text box
+    
+    st.markdown("----")
+
+
+
+
 
 st.set_page_config(page_title = 'Vulnerability Analysis', 
                    initial_sidebar_state='expanded', layout="wide") 
@@ -33,48 +82,7 @@ with st.expander("ℹ️ - About this app", expanded=False):
         other users in extracting and filtering references \
         to different vulnerable groups from public documents.
         """)
-    # st.write('**Definitions**')
 
-    # st.caption("""
-    #         - **Target**: Targets are an intention to achieve a specific result, \
-    #         for example, to reduce GHG emissions to a specific level \
-    #         (a GHG target) or increase energy efficiency or renewable \
-    #         energy to a specific level (a non-GHG target), typically by \ 
-    #         a certain date.
-    #         - **Economy-wide Target**: Certain Target are applicable \
-    #             not at specific Sector level but are applicable at economic \
-    #             wide scale.
-    #         - **Netzero**: Identifies if its Netzero Target or not.
-    #             - 'NET-ZERO': target_labels = ['T_Netzero','T_Netzero_C']
-    #             - 'Non Netzero Target': target_labels_neg = ['T_Economy_C',
-    #               'T_Economy_Unc','T_Adaptation_C','T_Adaptation_Unc','T_Transport_C',
-    #               'T_Transport_O_C','T_Transport_O_Unc','T_Transport_Unc']
-    #             - 'Others': Other Targets beside covered above
-    #         - **GHG Target**: GHG targets refer to contributions framed as targeted \
-    #                           outcomes in GHG terms.
-    #             - 'GHG': target_labels_ghg_yes = ['T_Transport_Unc','T_Transport_C']
-    #             - 'NON GHG TRANSPORT TARGET': target_labels_ghg_no = ['T_Adaptation_Unc',\
-    #                'T_Adaptation_C', 'T_Transport_O_Unc', 'T_Transport_O_C']
-    #             - 'OTHERS': Other Targets beside covered above.
-    #         - **Conditionality**: An “unconditional contribution” is what countries \
-    #          could implement without any conditions and based on their own \
-    #          resources and capabilities. A “conditional contribution” is one \
-    #          that countries would undertake if international means of support \
-    #          are provided, or other conditions are met.
-    #         - **Action**: Actions are an intention to implement specific means of \
-    #          achieving GHG reductions, usually in forms of concrete projects.
-    #         - **Policies and Plans**: Policies are domestic planning documents \
-    #           such as policies, regulations or guidlines, and Plans  are broader \
-    #          than specific policies or actions, such as a general intention \ 
-    #          to ‘improve efficiency’, ‘develop renewable energy’, etc. \
-    #         The terms come from the World Bank's NDC platform and WRI's publication.
-    #           """)
-    
-    #c1, c2, c3 =  st.columns([12,1,10])
-    #with c1:
-    #    image = Image.open('docStore/img/flow.jpg') 
-    #    st.image(image)
-    #with c3:
     st.write("""
         What Happens in background?
         
@@ -112,6 +120,22 @@ if 'combined_files_df' in st.session_state:
 
         # Assign dataframe a name
         df_vul = st.session_state['combined_files_df']
+
+        # convert df_vul rows to Document object so we can feed it into the summarizer easily
+        # we take a list of each extract
+        ls_dict = []
+        df_docs = df_vul[df_vul['Vulnerability Label'] != 'Other']
+        # Iterate over df and add relevant fields to the dict object
+        for index, row in df_docs.iterrows():
+            # Create a Document object for each row (we only need the text)
+            doc = Document(
+                row['text'],
+                meta={
+                'filename': row['filename']}
+            )
+            # Append the Document object to the documents list
+            ls_dict.append(doc)
+
 
         col1, col2 = st.columns([1,1])
 
@@ -156,9 +180,17 @@ if 'combined_files_df' in st.session_state:
             
             #Show plot
             st.plotly_chart(fig, use_container_width=True)
-    
-        ### Table 
-        st.table(df_vul[df_vul['Vulnerability Label'] != 'Other'])
+
+        ### Summary
+        st.markdown("----")
+        st.markdown('**DOCUMENT SUMMARY:**')
+        res_box = st.empty()
+        run_query(ls_dict)
+        
+
+        with st.expander("ℹ️ - Document Text Classifications", expanded=False):
+            ### Table 
+            st.table(df_vul[df_vul['Vulnerability Label'] != 'Other'])
 
        # vulnerability_analysis.vulnerability_display()
     # elif topic == 'Action':

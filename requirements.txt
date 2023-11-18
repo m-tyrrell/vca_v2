@@ -20,3 +20,5 @@ streamlit-aggrid
 python-docx
 setfit
 plotly.express
+openai==0.27.9
+pydantic==1.8.2
