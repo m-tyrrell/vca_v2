@@ -14,6 +14,7 @@ import openai
 
 # Get openai API key
 openai.api_key = os.environ["OPENAI_API_KEY"]
+model_select = "gpt-3.5-turbo-1106"
 
 
 #_______________________________________________________________________________________________
@@ -34,11 +35,23 @@ def get_prompt(docs):
   return(prompt)
 
 def run_query(docs):
+    # res = openai.ChatCompletion.create(model=model_select, messages=[{"role": "user", "content": get_prompt(docs)}])
+    # output = res.choices[0].message.content
+
     # instantiate ChatCompletion as a generator object (stream is set to True)
-    # response = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": get_prompt(docs)}], stream=True)
-    res = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": get_prompt(docs)}])
-    output = res.choices[0].message.content
-    st.success(output)
+    response = openai.ChatCompletion.create(model=model_select, messages=[{"role": "user", "content": get_prompt(docs)}], stream=True)
+    # iterate through the streamed output
+    report = []
+    for chunk in response:
+        # extract the object containing the text (totally different structure when streaming)
+        chunk_message = chunk['choices'][0]['delta']
+        # test to make sure there is text in the object (some don't have)
+        if 'content' in chunk_message:
+            report.append(chunk_message.content) # extract the message
+            # add the latest text and merge it with all previous
+            result = "".join(report).strip()
+            res_box.success(result) # output to response text box
+
     st.markdown("----")
 
 
@@ -55,8 +68,8 @@ st.set_page_config(page_title = 'Vulnerability Analysis',
 with st.sidebar:
     # upload and example doc
     choice = st.sidebar.radio(label = 'Select the Document',
-                            help = 'You can upload the document \
-                            or else you can try a example document', 
+                            help = 'You can upload your own documents \
+                            or use the example document', 
                             options = ('Upload Document', 'Try Example'), 
                             horizontal = True)
     add_upload(choice)
@@ -65,7 +78,7 @@ with st.sidebar:
 
 
 with st.container():
-        st.markdown("<h2 style='text-align: center; color: black;'> Vulnerability Analysis </h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center;'> Vulnerability Analysis </h2>", unsafe_allow_html=True)
         st.write(' ')
 
 with st.expander("ℹ️ - About this app", expanded=False):
@@ -95,7 +108,7 @@ with st.expander("ℹ️ - About this app", expanded=False):
 apps = [processing.app, vulnerability_analysis.app]
 
 multiplier_val = 1 / len(apps)
-if st.button("Analyze Document"):
+if st.button("Analyze Documents"):
     prg = st.progress(0.0)
     for i, func in enumerate(apps):
         func()
@@ -113,7 +126,6 @@ if 'combined_files_df' in st.session_state:
         with tab:
             # Main app code
             with st.container():
-                st.markdown("<h2 style='text-align: center; color: black;'> Vulnerability Analysis </h2>", unsafe_allow_html=True)
                 st.write(' ')
 
                 # Assign dataframe a name
@@ -182,7 +194,7 @@ if 'combined_files_df' in st.session_state:
 
             ### Summary
             st.markdown("----")
-            st.markdown('**DOCUMENT SUMMARY:**')
+            st.markdown('**DOCUMENT FINDINGS SUMMARY:**')
             res_box = st.empty()
             run_query(ls_dict)
             
