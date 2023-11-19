@@ -6,13 +6,9 @@ from utils.vulnerability_classifier import label_dict
 import pandas as pd
 import plotly.express as px
 import os
-
-
 import json
-# from dotenv import load_dotenv
 import numpy as np
 from haystack.schema import Document
-# from huggingface_hub import login, HfApi, hf_hub_download, InferenceClient
 import openai
 
 
@@ -20,8 +16,14 @@ import openai
 openai.api_key = os.environ["OPENAI_API_KEY"]
 
 
-prompt_template="Provide a single paragraph summary of the documents provided below. \
-Formulate your answer in the style of an academic report."
+#_______________________________________________________________________________________________
+
+def create_tabs(uploaded_docs):
+    tabs = []
+    for doc_name in uploaded_docs:
+        tab_title = doc_name  # Assuming doc_name is a string with the file name
+        tabs.append(tab_title)
+    return tabs
 
 # define a special function for putting the prompt together (as we can't use haystack)
 def get_prompt(docs):
@@ -37,22 +39,14 @@ def run_query(docs):
     res = openai.ChatCompletion.create(model="gpt-3.5-turbo-1106", messages=[{"role": "user", "content": get_prompt(docs)}])
     output = res.choices[0].message.content
     st.success(output)
-    # iterate through the streamed output
-    # report = []
-    # for chunk in response:
-    #     # extract the object containing the text (totally different structure when streaming)
-    #     chunk_message = chunk['choices'][0]['delta']
-    #     # test to make sure there is text in the object (some don't have)
-    #     if 'content' in chunk_message:
-    #         report.append(chunk_message.content) # extract the message
-    #         # add the latest text and merge it with all previous
-    #         result = "".join(report).strip()
-    #         res_box.success(result) # output to response text box
-    
     st.markdown("----")
 
 
+prompt_template="Provide a single paragraph summary of the documents provided below. \
+Formulate your answer in the style of an academic report."
 
+
+#_______________________________________________________________________________________________
 
 
 st.set_page_config(page_title = 'Vulnerability Analysis', 
@@ -97,7 +91,6 @@ with st.expander("ℹ️ - About this app", expanded=False):
 
 
 
-
 # Define the apps used
 apps = [processing.app, vulnerability_analysis.app]
 
@@ -108,94 +101,94 @@ if st.button("Analyze Document"):
         func()
         prg.progress((i + 1) * multiplier_val)
 
-
-# If there is data stored
 if 'combined_files_df' in st.session_state:
-    with st.sidebar:
-        topic = st.radio(
-                        "Which category you want to explore?",
-                        (['Vulnerability']))
-    
-    if topic == 'Vulnerability':
+    uploaded_docs = [value for key, value in st.session_state.items() if key.startswith('filename_')]
+    # uploaded_docs = st.session_state['files_data'].keys() 
+    tab_titles = create_tabs(uploaded_docs)
 
-        # Assign dataframe a name
-        df_vul = st.session_state['combined_files_df']
+    tabs = st.tabs(tab_titles)
 
-        # convert df_vul rows to Document object so we can feed it into the summarizer easily
-        # we take a list of each extract
-        ls_dict = []
-        df_docs = df_vul[df_vul['Vulnerability Label'] != 'Other']
-        # Iterate over df and add relevant fields to the dict object
-        for index, row in df_docs.iterrows():
-            # Create a Document object for each row (we only need the text)
-            doc = Document(
-                row['text'],
-                meta={
-                'filename': row['filename']}
-            )
-            # Append the Document object to the documents list
-            ls_dict.append(doc)
+    # Render the results, graphs, tables in indidivual tabs
+    for tab, doc in zip(tabs, uploaded_docs):
+        with tab:
+            # Main app code
+            with st.container():
+                st.markdown("<h2 style='text-align: center; color: black;'> Vulnerability Analysis </h2>", unsafe_allow_html=True)
+                st.write(' ')
+
+                # Assign dataframe a name
+            df_vul = st.session_state['combined_files_df']
+            df_vul = df_vul[df_vul['filename'] == doc]
+
+            # convert df_vul rows to Document object so we can feed it into the summarizer easily
+            # we take a list of each extract
+            ls_dict = []
+            df_docs = df_vul[df_vul['Vulnerability Label'] != 'Other']
+            # Iterate over df and add relevant fields to the dict object
+            for index, row in df_docs.iterrows():
+                # Create a Document object for each row (we only need the text)
+                doc = Document(
+                    row['text'],
+                    meta={
+                    'filename': row['filename']}
+                )
+                # Append the Document object to the documents list
+                ls_dict.append(doc)
 
 
-        col1, col2 = st.columns([1,1])
+            col1, col2 = st.columns([1,1])
 
-        with col1:
-            # Header
-            st.subheader("Explore references to vulnerable groups:")
+            with col1:
+                # Header
+                st.subheader("Explore references to vulnerable groups:")
 
-            # Text 
-            num_paragraphs = len(df_vul['Vulnerability Label'])
-            num_references = len(df_vul[df_vul['Vulnerability Label'] != 'Other'])
-            
-            st.markdown(f"""<div style="text-align: justify;"> The document contains a
-                    total of <span style="color: red;">{num_paragraphs}</span> paragraphs.
-                    We identified <span style="color: red;">{num_references}</span>
-                    references to vulnerable groups.</div>
-                    <br>
-                    In the pie chart on the right you can see the distribution of the different 
-                    groups defined. For a more detailed view in the text, see the paragraphs and 
-                    their respective labels in the table below.</div>""", unsafe_allow_html=True)
-    
-        with col2:
-            ### Pie chart
-                        
-            # Create a df that stores all the labels
-            df_labels = pd.DataFrame(list(label_dict.items()), columns=['Label ID', 'Label'])
-    
-            # Count how often each label appears in the "Vulnerability Labels" column
-            label_counts = df_vul['Vulnerability Label'].value_counts().reset_index()
-            label_counts.columns = ['Label', 'Count']
-    
-            # Merge the label counts with the df_label DataFrame
-            df_labels = df_labels.merge(label_counts, on='Label', how='left')
-    
-            # Configure graph
-            fig = px.pie(df_labels,
-                    names="Label", 
-                    values="Count",
-                    title='Label Counts',
-                    hover_name="Count",
-                    color_discrete_sequence=px.colors.qualitative.Plotly
-            )
-            
-            #Show plot
-            st.plotly_chart(fig, use_container_width=True)
-
-        ### Summary
-        st.markdown("----")
-        st.markdown('**DOCUMENT SUMMARY:**')
-        res_box = st.empty()
-        run_query(ls_dict)
+                # Text 
+                num_paragraphs = len(df_vul['Vulnerability Label'])
+                num_references = len(df_vul[df_vul['Vulnerability Label'] != 'Other'])
+                
+                st.markdown(f"""<div style="text-align: justify;"> The document contains a
+                        total of <span style="color: red;">{num_paragraphs}</span> paragraphs.
+                        We identified <span style="color: red;">{num_references}</span>
+                        references to vulnerable groups.</div>
+                        <br>
+                        In the pie chart on the right you can see the distribution of the different 
+                        groups defined. For a more detailed view in the text, see the paragraphs and 
+                        their respective labels in the table below.</div>""", unsafe_allow_html=True)
         
+            with col2:
+                ### Pie chart
+                            
+                # Create a df that stores all the labels
+                df_labels = pd.DataFrame(list(label_dict.items()), columns=['Label ID', 'Label'])
+        
+                # Count how often each label appears in the "Vulnerability Labels" column
+                label_counts = df_vul['Vulnerability Label'].value_counts().reset_index()
+                label_counts.columns = ['Label', 'Count']
+        
+                # Merge the label counts with the df_label DataFrame
+                df_labels = df_labels.merge(label_counts, on='Label', how='left')
+        
+                # Configure graph
+                fig = px.pie(df_labels,
+                        names="Label", 
+                        values="Count",
+                        title='Label Counts',
+                        hover_name="Count",
+                        color_discrete_sequence=px.colors.qualitative.Plotly
+                )
+                
+                #Show plot
+                st.plotly_chart(fig, use_container_width=True)
 
-        with st.expander("ℹ️ - Document Text Classifications", expanded=False):
-            ### Table 
-            st.table(df_vul[df_vul['Vulnerability Label'] != 'Other'])
+            ### Summary
+            st.markdown("----")
+            st.markdown('**DOCUMENT SUMMARY:**')
+            res_box = st.empty()
+            run_query(ls_dict)
+            
 
-       # vulnerability_analysis.vulnerability_display()
-    # elif topic == 'Action':
-    #     policyaction.action_display()
-    # else: 
-    #     policyaction.policy_display()
-    #st.write(st.session_state.key0)
+            with st.expander("ℹ️ - Document Text Classifications", expanded=False):
+                ### Table 
+                st.table(df_vul[df_vul['Vulnerability Label'] != 'Other'])
+
 

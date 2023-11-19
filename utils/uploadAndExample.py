@@ -61,7 +61,7 @@ def add_upload(choice):
                 temp.write(bytes_data)
                 st.session_state[f'filename_{index}'] = uploaded_file.name
                 st.session_state[f'filepath_{index}'] = temp.name
-        st.text(f"Session State: {st.session_state}")
+        # st.text(f"Session State: {st.session_state}")
 
     else:  # Handle example document selection
         # listing the options
@@ -74,4 +74,4 @@ def add_upload(choice):
         st.session_state['filename_0'] = file_name  # Use 'filename_0' to align with the upload naming convention
         st.session_state['filepath_0'] = file_path  # Use 'filepath_0' for consistency
 
-    st.write(st.session_state)
+    # st.write(st.session_state)
