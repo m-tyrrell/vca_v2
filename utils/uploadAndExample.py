@@ -29,8 +29,8 @@ def add_upload(choice):
 
         option = st.sidebar.selectbox('Select the example document',
                                       list(files.keys()))
-        file_name = file_path = files[option]
-        st.session_state['filename_0'] = file_name  # Use 'filename_0' to align with the upload naming convention
+        file_path = files[option]
+        st.session_state['filename_0'] = file_path.split('/')[-1]  # Use 'filename_0' to align with the upload naming convention
         st.session_state['filepath_0'] = file_path  # Use 'filepath_0' for consistency
 
 
