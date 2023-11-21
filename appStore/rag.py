@@ -15,8 +15,10 @@ model_select = "gpt-3.5-turbo-1106"
 
 # define a special function for putting the prompt together (as we can't use haystack)
 def get_prompt(docs):
-  base_prompt="Provide a single paragraph summary of the documents provided below. \
+  base_prompt="The following context is comprised of extracted text from climate policy documents. \
+  Provide a single paragraph summary of the extracts. \
   Formulate your answer in the style of an academic report."
+  
   # Add the meta data for references
   context = ' - '.join([d.content for d in docs])
   prompt = base_prompt+"; Context: "+context+"; Answer:"
